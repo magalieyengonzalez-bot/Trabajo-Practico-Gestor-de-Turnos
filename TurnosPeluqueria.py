@@ -124,7 +124,7 @@ class GestorTurnos:            #mantiene en memoria clientesy turnos. ofrece met
             self.clientes.clear()              #limpia los adtos actuales en memoria para cargar desdde csv
             self.turnos.clear()
             for row in reader:   #itera cada fila
-                dni = row["cliente_dni"].strip()      #toma el campo y aplica strio() para quitar espacios de lso extremos
+                dni = row["cliente_dni"].strip()      #toma el campo y aplica strio() para quitar espacios de los extremos
                 if dni:
                     # si cliente no existe, crearlo
                     if dni not in self.clientes:
@@ -151,21 +151,21 @@ class GestorTurnos:            #mantiene en memoria clientesy turnos. ofrece met
 
     def load_from_dict(self):
         """Cargar desde archivo JSON (dict)"""
-        with open(self.dict_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        self.clientes = {dni: Cliente.from_dict(cd) for dni, cd in data.get("clientes", {}).items()}
+        with open(self.dict_path, "r", encoding="utf-8") as f: #abre json para lectura
+            data = json.load(f)       # parsea el json a estructuras python (diccionario y listas). obtiene el subdiccionario de cliente o {} si no existe evita KeyError
+        self.clientes = {dni: Cliente.from_dict(cd) for dni, cd in data.get("clientes", {}).items()}    # para devolver objetos 
         self.turnos = {tid: Turno.from_dict(td) for tid, td in data.get("turnos", {}).items()}
 
     # ---------- Operaciones ----------
     def registrar_cliente(self, dni, nombre, telefono=""):
-        dni = dni.strip()
+        dni = dni.strip() # quita espacios 
         if dni in self.clientes:
-            raise ValueError(f"Cliente con DNI {dni} ya registrado.")
-        cliente = Cliente(dni=dni, nombre=nombre.strip(), telefono=telefono.strip())
+            raise ValueError(f"Cliente con DNI {dni} ya registrado.") # si el dni ya existe lanza error
+        cliente = Cliente(dni=dni, nombre=nombre.strip(), telefono=telefono.strip()) #crea instancia cliente
         self.clientes[dni] = cliente
         self.dump_to_dict()
         # no forzamos CSV aquí: turnos no cambiaron, pero se puede guardar si querés
-        return cliente
+        return cliente # retorna la instancia guardada
 
     def solicitar_turno(self, cliente_dni, datetime_str, servicio, notas=""):
         # valida cliente
@@ -457,3 +457,4 @@ if __name__ == "__main__":
         print(f"[FATAL] {e}")
 
         raise
+
