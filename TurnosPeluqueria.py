@@ -29,19 +29,19 @@ class Cliente:
     nombre: str
     telefono: str = ""
 
-    def to_dict(self):
-        return asdict(self)
+    def to_dict(self):                # devuelve un diccionario con los campos del dataclass 
+        return asdict(self)           # asdic recorre la instancia
 
     @staticmethod
     def from_dict(d):
-        return Cliente(dni=d["dni"], nombre=d["nombre"], telefono=d.get("telefono", ""))
+        return Cliente(dni=d["dni"], nombre=d["nombre"], telefono=d.get("telefono", ""))  # recibe un diccionario d y devuelve una instacia cliente
 
 
 @dataclass
 class Turno:
     id: str
-    cliente_dni: str
-    datetime_str: str  # ISO-ish string in DATETIME_FORMAT
+    cliente_dni: str     # no referencia como objeto para simpliciad de serialización
+    datetime_str: str  # ISO-ish string in DATETIME_FORMAT  guarda fecha como string
     servicio: str
     estado: str = "activo"  # activo, cancelado, realizado
     notas: str = ""
@@ -61,10 +61,10 @@ class Turno:
         )
 
     def datetime_obj(self):
-        return datetime.strptime(self.datetime_str, DATETIME_FORMAT)
+        return datetime.strptime(self.datetime_str, DATETIME_FORMAT)  #parsea. permite comparaciones y ordenamiento numerico/temporales
 
 
-class GestorTurnos:
+class GestorTurnos:            #mantiene en memoria clientesy turnos. ofrece metodos para operar sobre ellos y persistirlo
     def __init__(self, csv_path=CSV_FILE, dict_path=DICT_FILE):
         self.csv_path = csv_path
         self.dict_path = dict_path
@@ -72,14 +72,14 @@ class GestorTurnos:
         self.clientes = {}
         self.turnos = {}
         # carga inicial si existe CSV o JSON
-        if os.path.exists(self.dict_path):
+        if os.path.exists(self.dict_path):      # si existe el json lo carga
             try:
-                self.load_from_dict()
+                self.load_from_dict()          #carga desde json
                 # ensure CSV is in sync
-                self.dump_to_csv()
-            except Exception as e:
+                self.dump_to_csv()    #csv sincronizado con json
+            except Exception as e:  
                 print(f"[WARN] Error cargando dict ({self.dict_path}): {e}")
-        elif os.path.exists(self.csv_path):
+        elif os.path.exists(self.csv_path):  # manejar errores y notificar con print
             try:
                 self.load_from_csv()
                 self.dump_to_dict()
@@ -87,18 +87,18 @@ class GestorTurnos:
                 print(f"[WARN] Error cargando CSV ({self.csv_path}): {e}")
 
     # ---------- Persistencia ----------
-    def dump_to_csv(self):
+    def dump_to_csv(self):           
         """Volcar turnos + clientes a CSV (cada fila: turno + cliente)"""
-        fieldnames = [
+        fieldnames = [    
             "turno_id", "cliente_dni", "cliente_nombre", "cliente_telefono",
-            "datetime_str", "servicio", "estado", "notas"
+            "datetime_str", "servicio", "estado", "notas"    #cabecera del cvs
         ]
         try:
-            with open(self.csv_path, mode="w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                for t in self.turnos.values():
-                    cli = self.clientes.get(t.cliente_dni)
+            with open(self.csv_path, mode="w", newline="", encoding="utf-8") as f:    #abre el archivo en modo escritura, evita el doble salto y soprta caracteres ASCII
+                writer = csv.DictWriter(f, fieldnames=fieldnames)    #crea objetos que escsribe diccionarios como filas
+                writer.writeheader()     #escribe la fila de cabeceras
+                for t in self.turnos.values():          # itera por todos los objetos Turnos en memoria
+                    cli = self.clientes.get(t.cliente_dni)     #obtiene el cliente asociado
                     writer.writerow({
                         "turno_id": t.id,
                         "cliente_dni": t.cliente_dni,
@@ -107,24 +107,24 @@ class GestorTurnos:
                         "datetime_str": t.datetime_str,
                         "servicio": t.servicio,
                         "estado": t.estado,
-                        "notas": t.notas,
-                    })
-        except Exception as e:
+                        "notas": t.notas,     
+                    })    #crea diccionario con las claves
+        except Exception as e:     #caputura cualquier error de E/S lo imprime y relanza la excepcion
             print(f"[ERROR] No se pudo guardar CSV: {e}")
-            raise
+            raise #excepcion, para que llamador sepa
         # también guardar dict
         self.dump_to_dict()
 
-    def load_from_csv(self):
+    def load_from_csv(self):         # si no existe el csv no hace nada
         """Cargar desde CSV - construye clientes y turnos"""
         if not os.path.exists(self.csv_path):
             return
-        with open(self.csv_path, mode="r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            self.clientes.clear()
+        with open(self.csv_path, mode="r", encoding="utf-8") as f: #abre el archivo en modo lectura
+            reader = csv.DictReader(f)     # crea iterador que devuelve cada fila como diccionario
+            self.clientes.clear()              #limpia los adtos actuales en memoria para cargar desdde csv
             self.turnos.clear()
-            for row in reader:
-                dni = row["cliente_dni"].strip()
+            for row in reader:   #itera cada fila
+                dni = row["cliente_dni"].strip()      #toma el campo y aplica strio() para quitar espacios de lso extremos
                 if dni:
                     # si cliente no existe, crearlo
                     if dni not in self.clientes:
@@ -140,14 +140,14 @@ class GestorTurnos:
                 )
                 self.turnos[t.id] = t
 
-    def dump_to_dict(self):
+    def dump_to_dict(self):      #construye diccionario con dos claves clientes y turnos
         """Volcar dict a archivo JSON"""
         data = {
-            "clientes": {dni: cli.to_dict() for dni, cli in self.clientes.items()},
-            "turnos": {tid: t.to_dict() for tid, t in self.turnos.items()},
+            "clientes": {dni: cli.to_dict() for dni, cli in self.clientes.items()},      #convierte cada cliente en un dict
+            "turnos": {tid: t.to_dict() for tid, t in self.turnos.items()},               #mapea tid → t.to_dict()
         }
-        with open(self.dict_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        with open(self.dict_path, "w", encoding="utf-8") as f:         #abre json para escritura
+            json.dump(data, f, indent=2, ensure_ascii=False)     #escribe JSON formateado con indentación (legible), y ensure_ascii=False para mantener caracteres especiales (acentos) en UTF-8
 
     def load_from_dict(self):
         """Cargar desde archivo JSON (dict)"""
@@ -455,4 +455,5 @@ if __name__ == "__main__":
         main_menu()
     except Exception as e:
         print(f"[FATAL] {e}")
+
         raise
